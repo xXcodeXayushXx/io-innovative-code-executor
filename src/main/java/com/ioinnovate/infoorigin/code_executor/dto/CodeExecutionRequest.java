@@ -1,32 +1,20 @@
 package com.ioinnovate.infoorigin.code_executor.dto;
 
+import java.util.List;
+
 public class CodeExecutionRequest {
     private String code;
-    private String input;
-    private String expectedOutput;
+    private List<String> inputs;
+    private List<String> expectedOutputs;
+    private Integer timeoutSeconds;
 
     // Getters and setters
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public String getInput() {
-        return input;
-    }
-
-    public void setInput(String input) {
-        this.input = input;
-    }
-
-    public String getExpectedOutput() {
-        return expectedOutput;
-    }
-
-    public void setExpectedOutput(String expectedOutput) {
-        this.expectedOutput = expectedOutput;
-    }
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
+    public List<String> getInputs() { return inputs; }
+    public void setInputs(List<String> inputs) { this.inputs = inputs; }
+    public List<String> getExpectedOutputs() { return expectedOutputs; }
+    public void setExpectedOutputs(List<String> expectedOutputs) { this.expectedOutputs = expectedOutputs; }
+    public Integer getTimeoutSeconds() { return timeoutSeconds; }
+    public void setTimeoutSeconds(Integer timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
 }
