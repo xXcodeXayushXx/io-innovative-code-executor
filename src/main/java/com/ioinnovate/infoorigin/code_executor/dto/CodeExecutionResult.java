@@ -2,15 +2,15 @@ package com.ioinnovate.infoorigin.code_executor.dto;
 
 import java.util.List;
 
-public class ExecutionResult {
+public class CodeExecutionResult {
     private boolean success;
     private String message;
     private List<String> actualOutputs;
     private long executionTime;
     private String errorOutput;
 
-    public ExecutionResult(boolean success, String message, List<String> actualOutputs,
-                           long executionTime, String errorOutput) {
+    public CodeExecutionResult(boolean success, String message, List<String> actualOutputs,
+                               long executionTime, String errorOutput) {
         this.success = success;
         this.message = message;
         this.actualOutputs = actualOutputs;

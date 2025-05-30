@@ -1,13 +1,12 @@
 package com.ioinnovate.infoorigin.code_executor.service;
 
-import com.ioinnovate.infoorigin.code_executor.dto.ExecutionResult;
+import com.ioinnovate.infoorigin.code_executor.dto.CodeExecutionResult;
 import org.springframework.stereotype.Service;
 import java.io.*;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
@@ -20,17 +19,17 @@ public class CodeExecutionService {
     private static final int MAX_INPUT_LENGTH = 5000;
     private static final int MAX_CODE_LENGTH = 100000;
 
-    public ExecutionResult executeAndVerify(String code, List<String> inputs,
-                                            List<String> expectedOutputs, int timeoutSeconds) {
+    public CodeExecutionResult executeAndVerify(String code, List<String> inputs,
+                                                List<String> expectedOutputs, int timeoutSeconds) {
         // Validate sizes
         if (code.length() > MAX_CODE_LENGTH) {
-            return new ExecutionResult(false, "Code too large", null, -1, "Code exceeds maximum allowed size");
+            return new CodeExecutionResult(false, "Code too large", null, -1, "Code exceeds maximum allowed size");
         }
 
         if (inputs != null) {
             for (String input : inputs) {
                 if (input.length() > MAX_INPUT_LENGTH) {
-                    return new ExecutionResult(false, "Input too large", null, -1, "Input exceeds maximum allowed size");
+                    return new CodeExecutionResult(false, "Input too large", null, -1, "Input exceeds maximum allowed size");
                 }
             }
         }
@@ -48,7 +47,7 @@ public class CodeExecutionService {
             }
         } catch (IOException e) {
             logger.error("File creation failed: {}", e.getMessage());
-            return new ExecutionResult(false, "File creation failed", null, -1, e.getMessage());
+            return new CodeExecutionResult(false, "File creation failed", null, -1, e.getMessage());
         }
 
         // Prepare process
@@ -61,7 +60,7 @@ public class CodeExecutionService {
             process = processBuilder.start();
         } catch (IOException e) {
             logger.error("Process start failed: {}", e.getMessage());
-            return new ExecutionResult(false, "Execution failed", null, -1, e.getMessage());
+            return new CodeExecutionResult(false, "Execution failed", null, -1, e.getMessage());
         }
 
         // Handle inputs and outputs
@@ -102,12 +101,12 @@ public class CodeExecutionService {
             } catch (TimeoutException e) {
                 process.destroyForcibly();
                 long executionTime = System.currentTimeMillis() - startTime;
-                return new ExecutionResult(false, "Timeout exceeded", null, executionTime,
+                return new CodeExecutionResult(false, "Timeout exceeded", null, executionTime,
                         "Execution took longer than " + timeoutSeconds + " seconds");
             } catch (Exception e) {
                 process.destroy();
                 long executionTime = System.currentTimeMillis() - startTime;
-                return new ExecutionResult(false, "Execution failed", null, executionTime, e.getMessage());
+                return new CodeExecutionResult(false, "Execution failed", null, executionTime, e.getMessage());
             } finally {
                 executor.shutdownNow();
             }
@@ -121,7 +120,7 @@ public class CodeExecutionService {
                 boolean success = actualOutput.equals(expectedOutput);
                 String message = success ? "Execution successful" : "Output mismatch";
 
-                return new ExecutionResult(
+                return new CodeExecutionResult(
                         success,
                         message,
                         outputLines,
@@ -130,7 +129,7 @@ public class CodeExecutionService {
                 );
             }
 
-            return new ExecutionResult(
+            return new CodeExecutionResult(
                     true,
                     "Execution completed (no expected output provided)",
                     outputLines,
@@ -140,7 +139,7 @@ public class CodeExecutionService {
 
         } catch (IOException e) {
             long executionTime = System.currentTimeMillis() - startTime;
-            return new ExecutionResult(false, "IO Error", null, executionTime, e.getMessage());
+            return new CodeExecutionResult(false, "IO Error", null, executionTime, e.getMessage());
         } finally {
             process.destroy();
         }

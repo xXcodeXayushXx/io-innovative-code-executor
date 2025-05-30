@@ -1,8 +1,8 @@
 package com.ioinnovate.infoorigin.code_executor.controller;
 
 import com.ioinnovate.infoorigin.code_executor.dto.CodeExecutionRequest;
-import com.ioinnovate.infoorigin.code_executor.dto.ExecutionResponse;
-import com.ioinnovate.infoorigin.code_executor.dto.ExecutionResult;
+import com.ioinnovate.infoorigin.code_executor.dto.CodeExecutionResponse;
+import com.ioinnovate.infoorigin.code_executor.dto.CodeExecutionResult;
 import com.ioinnovate.infoorigin.code_executor.service.CodeExecutionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,7 +30,7 @@ public class CodeExecutionController {
         this.codeExecutionService = codeExecutionService;
     }
 
-    @PostMapping("/execute")
+    @PostMapping("/execute-snippet")
     @Operation(
             summary = "Execute code snippet",
             description = "Executes the submitted code snippet with optional input/output validation and timeout.",
@@ -56,38 +56,38 @@ public class CodeExecutionController {
                     @ApiResponse(
                             responseCode = "200",
                             description = "Execution completed successfully",
-                            content = @Content(schema = @Schema(implementation = ExecutionResponse.class))
+                            content = @Content(schema = @Schema(implementation = CodeExecutionResponse.class))
                     ),
                     @ApiResponse(
                             responseCode = "400",
                             description = "Bad request (e.g., empty code submitted)",
-                            content = @Content(schema = @Schema(implementation = ExecutionResponse.class))
+                            content = @Content(schema = @Schema(implementation = CodeExecutionResponse.class))
                     ),
                     @ApiResponse(
                             responseCode = "500",
                             description = "Internal server error during code execution",
-                            content = @Content(schema = @Schema(implementation = ExecutionResponse.class))
+                            content = @Content(schema = @Schema(implementation = CodeExecutionResponse.class))
                     )
             }
     )
-    public ResponseEntity<ExecutionResponse> executeCode(
+    public ResponseEntity<CodeExecutionResponse> executeCode(
             @org.springframework.web.bind.annotation.RequestBody CodeExecutionRequest request) {
         logger.info("Received execution request for code snippet");
 
         if (request.getCode() == null || request.getCode().trim().isEmpty()) {
             return ResponseEntity.badRequest()
-                    .body(new ExecutionResponse(false, "Code cannot be empty", null, null, null));
+                    .body(new CodeExecutionResponse(false, "Code cannot be empty", null, null, null));
         }
 
         try {
-            ExecutionResult result = codeExecutionService.executeAndVerify(
+            CodeExecutionResult result = codeExecutionService.executeAndVerify(
                     request.getCode(),
                     request.getInputs(),
                     request.getExpectedOutputs(),
                     request.getTimeoutSeconds() != null ? request.getTimeoutSeconds() : 10
             );
 
-            ExecutionResponse response = new ExecutionResponse(
+            CodeExecutionResponse response = new CodeExecutionResponse(
                     result.isSuccess(),
                     result.getMessage(),
                     result.getActualOutputs(),
@@ -99,7 +99,8 @@ public class CodeExecutionController {
         } catch (Exception e) {
             logger.error("Error executing code: {}", e.getMessage());
             return ResponseEntity.internalServerError()
-                    .body(new ExecutionResponse(false, "Internal server error", null, null, e.getMessage()));
+                    .body(new CodeExecutionResponse(false, "Internal server error", null, null, e.getMessage()));
         }
     }
+
 }
