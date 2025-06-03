@@ -16,6 +16,7 @@ public class PythonExecutionService {
         boolean success = false;
         String message = "Execution completed";
         String errors = null;
+        String output = null;
 
         try {
             // Validate file exists
@@ -33,26 +34,32 @@ public class PythonExecutionService {
 
             // Read the output
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            StringBuilder output = new StringBuilder();
+            StringBuilder outputBuilder = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
+                outputBuilder.append(line).append("\n");
             }
+            output = outputBuilder.toString().trim();
 
             // Wait for process to complete and get exit code
             int exitCode = process.waitFor();
 
             if (exitCode == 0) {
-                success = true;
-                message = "Python script executed successfully";
+                // Check if the Python tests actually passed
+                success = output.equals("True");
+                message = success ? "Python script executed successfully with passing tests"
+                        : "Python script executed but tests failed";
+                if (!success) {
+                    errors = output;
+                }
             } else {
                 message = "Python script execution failed";
-                errors = output.toString();
+                errors = output;
             }
 
         } catch (Exception e) {
             message = "Error during execution";
-            errors = e.getMessage();
+            errors = e.getMessage() + (output != null ? "\nOutput:\n" + output : "");
         }
 
         long executionTime = Duration.between(start, Instant.now()).toMillis();
