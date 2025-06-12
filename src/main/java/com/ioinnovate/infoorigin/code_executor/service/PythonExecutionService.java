@@ -1,19 +1,26 @@
 package com.ioinnovate.infoorigin.code_executor.service;
 
 import com.ioinnovate.infoorigin.code_executor.dto.ExecutionResponse;
+import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Service
 public class PythonExecutionService {
+
+    private final ExecutorService executorService;
+
+    public PythonExecutionService() {
+        int poolSize = Runtime.getRuntime().availableProcessors(); // e.g., 4 threads for 4 cores
+        this.executorService = Executors.newFixedThreadPool(poolSize);
+    }
 
     public ExecutionResponse executePythonScript(String filePath) {
         Instant start = Instant.now();
@@ -23,20 +30,16 @@ public class PythonExecutionService {
         String output = null;
 
         try {
-            // Validate file exists
             File pythonFile = new File(filePath);
             if (!pythonFile.exists()) {
                 return new ExecutionResponse(false, "File not found", 0, "File does not exist at path: " + filePath);
             }
 
-            // Build the process
             ProcessBuilder processBuilder = new ProcessBuilder("python", filePath);
-            processBuilder.redirectErrorStream(true); // merge error and output streams
+            processBuilder.redirectErrorStream(true);
 
-            // Start the process
             Process process = processBuilder.start();
 
-            // Read the output
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             StringBuilder outputBuilder = new StringBuilder();
             String line;
@@ -45,13 +48,12 @@ public class PythonExecutionService {
             }
             output = outputBuilder.toString().trim();
 
-            // Wait for process to complete and get exit code
             int exitCode = process.waitFor();
 
             if (exitCode == 0) {
-                // Check if the Python tests actually passed
                 success = output.equals("True");
-                message = success ? "Python script executed successfully with passing tests"
+                message = success
+                        ? "Python script executed successfully with passing tests"
                         : "Python script executed but tests failed";
                 if (!success) {
                     errors = output;
@@ -70,7 +72,66 @@ public class PythonExecutionService {
         return new ExecutionResponse(success, message, executionTime, errors);
     }
 
-    public ExecutionResponse executePythonFile(MultipartFile file) {
+    public ExecutionResponse parallelExecutePythonScript(String filePath) {
+        Callable<ExecutionResponse> task = () -> {
+            Instant start = Instant.now();
+            boolean success = false;
+            String message = "Execution completed";
+            String errors = null;
+            String output = null;
+
+            try {
+                File pythonFile = new File(filePath);
+                if (!pythonFile.exists()) {
+                    return new ExecutionResponse(false, "File not found", 0, "File does not exist at path: " + filePath);
+                }
+
+                ProcessBuilder processBuilder = new ProcessBuilder("python", filePath);
+                processBuilder.redirectErrorStream(true);
+
+                Process process = processBuilder.start();
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                StringBuilder outputBuilder = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    outputBuilder.append(line).append("\n");
+                }
+                output = outputBuilder.toString().trim();
+
+                int exitCode = process.waitFor();
+
+                if (exitCode == 0) {
+                    success = output.equals("True");
+                    message = success
+                            ? "Python script executed successfully with passing tests"
+                            : "Python script executed but tests failed";
+                    if (!success) {
+                        errors = output;
+                    }
+                } else {
+                    message = "Python script execution failed";
+                    errors = output;
+                }
+
+            } catch (Exception e) {
+                message = "Error during execution";
+                errors = e.getMessage() + (output != null ? "\nOutput:\n" + output : "");
+            }
+
+            long executionTime = Duration.between(start, Instant.now()).toMillis();
+            return new ExecutionResponse(success, message, executionTime, errors);
+        };
+
+        try {
+            Future<ExecutionResponse> future = executorService.submit(task);
+            return future.get();
+        } catch (Exception e) {
+            return new ExecutionResponse(false, "Internal server error", 0, e.getMessage());
+        }
+    }
+
+    public ExecutionResponse executePythonFile(byte[] pythonScriptBytes) {
         Instant start = Instant.now();
         boolean success = false;
         String message = "Execution completed";
@@ -78,16 +139,21 @@ public class PythonExecutionService {
         StringBuilder output = new StringBuilder();
 
         try {
-            // Create temp file
-            File pythonFile = File.createTempFile("script_", ".py");
-            file.transferTo(pythonFile);
-            pythonFile.deleteOnExit();
-
-            // Execute process
-            ProcessBuilder processBuilder = new ProcessBuilder("python", pythonFile.getAbsolutePath());
+            ProcessBuilder processBuilder = new ProcessBuilder("python", "-");
             Process process = processBuilder.start();
 
-            // Read output streams in separate threads to prevent deadlock
+            // Create InputStream from byte array
+            InputStream scriptInputStream = new ByteArrayInputStream(pythonScriptBytes);
+
+            // Write the byte array to process's stdin
+            Thread inputThread = new Thread(() -> {
+                try (OutputStream os = process.getOutputStream()) {
+                    scriptInputStream.transferTo(os);
+                } catch (IOException e) {
+                    output.append("Error writing to process input: ").append(e.getMessage());
+                }
+            });
+
             Thread outputThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(
                         new InputStreamReader(process.getInputStream()))) {
@@ -112,16 +178,17 @@ public class PythonExecutionService {
                 }
             });
 
+            inputThread.start();
             outputThread.start();
             errorThread.start();
 
-            // Wait with timeout
-            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            boolean finished = process.waitFor(30, SECONDS);
             if (!finished) {
                 process.destroyForcibly();
                 message = "Timeout exceeded";
                 errors = "Execution took longer than 30 seconds";
             } else {
+                inputThread.join(1000);
                 outputThread.join(1000);
                 errorThread.join(1000);
 
@@ -138,5 +205,10 @@ public class PythonExecutionService {
 
         long executionTime = Duration.between(start, Instant.now()).toMillis();
         return new ExecutionResponse(success, message, executionTime, errors);
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        executorService.shutdown(); // Graceful shutdown
     }
 }

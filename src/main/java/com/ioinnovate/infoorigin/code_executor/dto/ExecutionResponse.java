@@ -28,6 +28,9 @@ public class ExecutionResponse {
     public boolean isSuccess() {
         return success;
     }
+    public boolean getSuccess() {
+        return this.success;
+    }
 
     public void setSuccess(boolean success) {
         this.success = success;

@@ -45,15 +45,11 @@ public class PythonExecutionController {
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ExecutionResponse executePythonScript(@RequestBody ExecutionRequest request) {
-        return pythonExecutionService.executePythonScript(request.getFilePath());
+        return pythonExecutionService.parallelExecutePythonScript(request.getFilePath());
     }
 
-    @PostMapping(
-            value = "/execute-python-file",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
-            produces = MediaType.APPLICATION_JSON_VALUE
-    )
-    public ExecutionResponse executePythonFile(@RequestParam("file") MultipartFile file) {
-        return pythonExecutionService.executePythonFile(file);
+    @PostMapping("/execute-python-file")
+    public ExecutionResponse executePythonFile(@RequestBody byte[] scriptBytes) {
+        return pythonExecutionService.executePythonFile(scriptBytes);
     }
 }
